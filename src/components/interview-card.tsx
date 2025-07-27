@@ -4,7 +4,6 @@ import { InterviewCardProps, InterviewData, InterviewType, TimeSlot } from '@/ty
 
 const InterviewCard: React.FC<InterviewCardProps> = ({
   candidateEmail = "candidate@example.com",
-  currentStage = "Technical Interview",
   onInterviewSelect,
   onInterviewEmailChange,
   onScheduleInterview
@@ -12,7 +11,7 @@ const InterviewCard: React.FC<InterviewCardProps> = ({
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedInterview, setSelectedInterview] = useState('');
   const [interviewEmail, setInterviewEmail] = useState('');
-  const [selectedTimezone, setSelectedTimezone] = useState('');
+  const [selectedTimezone, setSelectedTimezone] = useState('UTC+5:30 (IST)');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [meetingLink, setMeetingLink] = useState('');
@@ -32,64 +31,76 @@ const InterviewCard: React.FC<InterviewCardProps> = ({
   ];
 
   const interviewTypes: InterviewType[] = [
-    { value: 'phone', label: 'Phone Interview', icon: '📞', color: 'bg-green-100 border-green-200 text-green-800' },
-    { value: 'video', label: 'Video Interview', icon: '📹', color: 'bg-blue-100 border-blue-200 text-blue-800' },
-    { value: 'in-person', label: 'In-Person Interview', icon: '🏢', color: 'bg-purple-100 border-purple-200 text-purple-800' },
-    { value: 'technical', label: 'Technical Interview', icon: '💻', color: 'bg-orange-100 border-orange-200 text-orange-800' },
-    { value: 'behavioral', label: 'Behavioral Interview', icon: '🗣️', color: 'bg-pink-100 border-pink-200 text-pink-800' },
-    { value: 'final', label: 'Final Interview', icon: '🎯', color: 'bg-red-100 border-red-200 text-red-800' }
+    { value: 'phone', label: 'Phone Interview', icon: '📞', color: 'from-emerald-500 to-teal-600' },
+    { value: 'video', label: 'Video Interview', icon: '📹', color: 'from-blue-500 to-indigo-600' },
+    { value: 'technical', label: 'Technical Interview', icon: '💻', color: 'from-purple-500 to-violet-600' },
+    { value: 'final', label: 'Final Interview', icon: '🎯', color: 'from-rose-500 to-pink-600' }
   ];
 
-  // Generate time slots for the day (9 AM to 6 PM)
   const generateTimeSlots = (): TimeSlot[] => {
     const slots = [];
-    for (let hour = 9; hour <= 18; hour++) {
-      const time24 = `${hour.toString().padStart(2, '0')}:00`;
-      const time12 = hour <= 12 ? `${hour}:00 AM` : `${hour - 12}:00 PM`;
-      if (hour === 12) slots.push({ value: time24, label: '12:00 PM' });
-      else slots.push({ value: time24, label: time12 });
+    for (let hour = 9; hour <= 17; hour++) {
+      const startTime = hour;
+      const endTime = hour + 1;
+
+      const formatHour = (h: number) => {
+        if (h === 12) return '12 PM';
+        if (h > 12) return `${h - 12} PM`;
+        return `${h} AM`;
+      };
+
+      const value = `${hour.toString().padStart(2, '0')}:00`;
+      const label = `${formatHour(startTime)} - ${formatHour(endTime)}`;
+
+      slots.push({ value, label });
     }
     return slots;
   };
 
   const timeSlots = generateTimeSlots();
 
-  const handleTimezoneSelect = (timezone: string) => {
+  const handleTimezoneSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const timezone = e.target.value;
     setSelectedTimezone(timezone);
-    setCurrentStep(2);
   };
 
   const handleInterviewSelect = (type: string) => {
     setSelectedInterview(type);
     onInterviewSelect?.(type);
-    setCurrentStep(3);
   };
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setInterviewEmail(value);
     onInterviewEmailChange?.(value);
-    if (value && value.includes('@')) setCurrentStep(4);
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSelectedDate(value);
-    if (value) setCurrentStep(5);
   };
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
-    setCurrentStep(6);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setAttachments(prev => [...prev, ...files]);
+  const handleNextStep = () => {
+    if (canProceedToNext()) {
+      setCurrentStep(prev => Math.min(prev + 1, 3));
+    }
   };
 
-  const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
+  const canProceedToNext = () => {
+    switch (currentStep) {
+      case 1:
+        return selectedInterview !== '';
+      case 2:
+        return interviewEmail !== '' && selectedDate !== '' && selectedTime !== '';
+      case 3:
+        return true;
+      default:
+        return false;
+    }
   };
 
   const handleSchedule = () => {
@@ -106,375 +117,529 @@ const InterviewCard: React.FC<InterviewCardProps> = ({
     onScheduleInterview?.(interviewData);
   };
 
+  const stepTitles = [
+    'Interview Type',
+    'Schedule Details',
+    'Review & Confirm'
+  ];
+
   const isStepCompleted = (step: number) => currentStep > step;
   const isStepActive = (step: number) => currentStep === step;
 
-  const getStageColor = (stage: string) => {
-    const colors = {
-      'Technical Interview': 'bg-blue-100 text-blue-800 border-blue-200',
-      'Phone Interview': 'bg-green-100 text-green-800 border-green-200',
-      'Video Interview': 'bg-purple-100 text-purple-800 border-purple-200',
-      'Final Interview': 'bg-red-100 text-red-800 border-red-200',
-      'Behavioral Interview': 'bg-yellow-100 text-yellow-800 border-yellow-200'
-    };
-    return colors[stage as keyof typeof colors] || 'bg-gray-100 text-gray-800 border-gray-200';
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const stepTitles = [
-    'Select Timezone',
-    'Interview Type',
-    'Interviewer Details',
-    'Select Date',
-    'Choose Time',
-    'Meeting Details'
-  ];
-
-  return (
-    <div className="bg-white shadow-lg rounded-xl border p-8 max-w-6xl mx-auto">
-      {/* Header with Current Stage */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Schedule Interview
-          </h1>
-          <p className="text-gray-600">
-            Setting up interview for: <span className="font-semibold text-blue-600">{candidateEmail}</span>
-          </p>
-        </div>
-        <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStageColor(currentStage)}`}>
-          Current: {currentStage}
-        </span>
-      </div>
-
-      {/* Progress Steps */}
-      <div className="flex justify-between items-center mb-10">
-        {[1, 2, 3, 4, 5, 6].map((step, index) => (
-          <div key={step} className="flex items-center flex-1">
-            <div className="flex items-center">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${
-                isStepCompleted(step) ? 'bg-green-500 text-white' :
-                isStepActive(step) ? 'bg-blue-500 text-white' :
-                'bg-gray-200 text-gray-600'
-              }`}>
-                {isStepCompleted(step) ? '✓' : step}
+  const renderCurrentStep = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div>
+            <div className="mb-12 flex items-start justify-between">
+              <div className="text-left">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-900 bg-clip-text text-transparent">
+                  Select Interview Type
+                </h2>
+                <p className="text-gray-600 text-xl">Choose the type of interview you&apos;d like to schedule</p>
               </div>
-              <div className="ml-3">
-                <p className={`text-sm font-medium ${
-                  isStepActive(step) || isStepCompleted(step) ? 'text-gray-900' : 'text-gray-500'
-                }`}>
-                  {stepTitles[index]}
-                </p>
-              </div>
-            </div>
-            {index < 5 && (
-              <div className={`flex-1 h-1 mx-4 ${
-                isStepCompleted(step + 1) ? 'bg-green-500' : 'bg-gray-200'
-              }`} />
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-12 gap-8">
-        {/* Main Content */}
-        <div className="col-span-8 space-y-8">
-          {/* Step 1: Timezone Selection */}
-          <div className={`${currentStep < 1 ? 'opacity-50' : ''}`}>
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              1. Select Your Timezone
-            </h3>
-            <div className="flex flex-wrap gap-3">
-              {timezones.map((timezone) => (
+              {currentStep < 3 && (
                 <button
-                  key={timezone}
-                  onClick={() => handleTimezoneSelect(timezone)}
-                  disabled={currentStep < 1}
-                  className={`px-4 py-2 text-sm font-medium rounded-full border transition-all ${
-                    selectedTimezone === timezone
-                      ? 'bg-blue-500 text-white border-blue-500'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:border-blue-300'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  onClick={handleNextStep}
+                  disabled={!canProceedToNext()}
+                  className="group px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-bold disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg hover:shadow-xl disabled:shadow-none transform hover:scale-105 disabled:hover:scale-100 flex items-center space-x-2"
                 >
-                  {timezone}
+                  <span>Continue</span>
+                  <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {interviewTypes.map((type) => (
+                <button
+                  key={type.value}
+                  onClick={() => handleInterviewSelect(type.value)}
+                  className={`group relative p-8 rounded-3xl border-2 transition-all duration-500 ease-out transform hover:scale-[1.02] hover:-translate-y-1 ${
+                    selectedInterview === type.value
+                      ? 'border-transparent bg-gradient-to-br from-white to-blue-50 shadow-2xl shadow-blue-500/20'
+                      : 'border-gray-200 hover:border-blue-300 bg-white hover:shadow-xl hover:shadow-blue-500/10'
+                  }`}
+                >
+                  {selectedInterview === type.value && (
+                    <div className={`absolute inset-0 rounded-3xl bg-gradient-to-r ${type.color} opacity-10 blur-sm`}></div>
+                  )}
+                  <div className="relative z-10 flex items-center space-x-6">
+                    <div className={`relative text-4xl transition-all duration-500 ${
+                      selectedInterview === type.value ? 'scale-125 rotate-12' : 'group-hover:scale-110 group-hover:rotate-6'
+                    }`}>
+                      {type.icon}
+                      {selectedInterview === type.value && (
+                        <div className="absolute -inset-2 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 rounded-full blur animate-pulse"></div>
+                      )}
+                    </div>
+                    <div className="text-left flex-1">
+                      <div className="font-bold text-gray-900 text-xl mb-2">{type.label}</div>
+                      <div className={`h-1 w-0 transition-all duration-700 rounded-full ${
+                        selectedInterview === type.value
+                          ? `w-full bg-gradient-to-r ${type.color}`
+                          : 'group-hover:w-3/4 bg-gradient-to-r from-blue-500 to-indigo-600'
+                      }`} />
+                    </div>
+                  </div>
+                  {selectedInterview === type.value && (
+                    <div className="absolute top-4 right-4 w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
           </div>
+        );
 
-          {/* Step 2: Interview Type */}
-          {currentStep >= 2 && (
-            <div className={`${currentStep < 2 ? 'opacity-50' : ''}`}>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                2. Select Interview Type
-              </h3>
-              <div className="grid grid-cols-3 gap-4">
-                {interviewTypes.map((type) => (
-                  <button
-                    key={type.value}
-                    onClick={() => handleInterviewSelect(type.value)}
-                    disabled={currentStep < 2}
-                    className={`p-4 rounded-lg border-2 transition-all text-left ${
-                      selectedInterview === type.value
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    <div className="flex items-center mb-2">
-                      <span className="text-2xl mr-3">{type.icon}</span>
-                      <span className="font-medium text-gray-900">{type.label}</span>
-                    </div>
-                  </button>
-                ))}
+      case 2:
+        return (
+          <div>
+            <div className="mb-12 flex items-start justify-between">
+              <div className="text-left">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-900 bg-clip-text text-transparent">
+                  Schedule Details
+                </h2>
+                <p className="text-gray-600 text-xl">Set up the interview timing and logistics</p>
               </div>
+              {currentStep < 3 && (
+                <button
+                  onClick={handleNextStep}
+                  disabled={!canProceedToNext()}
+                  className="group px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-bold disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed shadow-lg hover:shadow-xl disabled:shadow-none transform hover:scale-105 disabled:hover:scale-100 flex items-center space-x-2"
+                >
+                  <span>Continue</span>
+                  <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              )}
             </div>
-          )}
 
-          {/* Step 3: Interviewer Email */}
-          {currentStep >= 3 && (
-            <div className={`${currentStep < 3 ? 'opacity-50' : ''}`}>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                3. Interviewer Details
-              </h3>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Interviewer Email
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="block text-sm font-bold text-gray-900 mb-3">
+                    Interviewer Email <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="email"
-                    value={interviewEmail}
-                    onChange={handleEmailChange}
-                    placeholder="interviewer@company.com"
-                    disabled={currentStep < 3}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                  />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                      </svg>
+                    </div>
+                    <input
+                      type="email"
+                      value={interviewEmail}
+                      onChange={handleEmailChange}
+                      placeholder="interviewer@company.com"
+                      className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white hover:border-gray-300 text-gray-900 placeholder-gray-500"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+
+                <div className="space-y-3">
+                  <label className="block text-sm font-bold text-gray-900 mb-3">
                     Meeting Link
                   </label>
-                  <input
-                    type="url"
-                    value={meetingLink}
-                    onChange={(e) => setMeetingLink(e.target.value)}
-                    placeholder="https://meet.google.com/xyz"
-                    disabled={currentStep < 3}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                  />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                    </div>
+                    <input
+                      type="url"
+                      value={meetingLink}
+                      onChange={(e) => setMeetingLink(e.target.value)}
+                      placeholder="https://meet.google.com/xyz"
+                      className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white hover:border-gray-300 text-gray-900 placeholder-gray-500"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* Step 4: Date Selection */}
-          {currentStep >= 4 && (
-            <div className={`${currentStep < 4 ? 'opacity-50' : ''}`}>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                4. Select Interview Date
-              </h3>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Preferred Date
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <label className="block text-sm font-bold text-gray-900 mb-3">
+                    Date <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={handleDateChange}
-                    disabled={currentStep < 4}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                  />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={handleDateChange}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white hover:border-gray-300 text-gray-900"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+
+                <div className="space-y-3">
+                  <label className="block text-sm font-bold text-gray-900 mb-3">
                     Duration
                   </label>
-                  <select className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100">
-                    <option>30 minutes</option>
-                    <option>45 minutes</option>
-                    <option defaultValue="1 hour">1 hour</option>
-                    <option>1.5 hours</option>
-                    <option>2 hours</option>
-                  </select>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <select className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white hover:border-gray-300 appearance-none text-gray-900" defaultValue="1 hour">
+                      <option>30 minutes</option>
+                      <option>45 minutes</option>
+                      <option>1 hour</option>
+                      <option>1.5 hours</option>
+                      <option>2 hours</option>
+                    </select>
+                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-sm font-bold text-gray-900 mb-3">
+                  Time <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {timeSlots.map((slot) => (
+                    <button
+                      key={slot.value}
+                      onClick={() => handleTimeSelect(slot.value)}
+                      className={`group relative p-4 rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 ${
+                        selectedTime === slot.value
+                          ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-lg shadow-blue-500/20'
+                          : 'border-gray-200 hover:border-blue-300 bg-white hover:shadow-md'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                          selectedTime === slot.value
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                            : 'bg-gray-300 group-hover:bg-blue-400'
+                        }`} />
+                        <span className={`font-semibold text-sm transition-all duration-300 ${
+                          selectedTime === slot.value
+                            ? 'text-blue-700'
+                            : 'text-gray-700 group-hover:text-blue-600'
+                        }`}>
+                          {slot.label}
+                        </span>
+                      </div>
+                      {selectedTime === slot.value && (
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        );
 
-          {/* Step 5: Time Slot Selection */}
-          {currentStep >= 5 && selectedDate && (
-            <div className={`${currentStep < 5 ? 'opacity-50' : ''}`}>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                5. Choose Available Time Slot
-              </h3>
-              <div className="grid grid-cols-5 gap-3">
-                {timeSlots.map((slot) => (
-                  <button
-                    key={slot.value}
-                    onClick={() => handleTimeSelect(slot.value)}
-                    disabled={currentStep < 5}
-                    className={`px-4 py-3 text-sm font-medium rounded-lg border transition-all ${
-                      selectedTime === slot.value
-                        ? 'bg-blue-500 text-white border-blue-500 shadow-md'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:border-blue-300'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    {slot.label}
-                  </button>
-                ))}
+      case 3:
+        return (
+          <div>
+            <div className="mb-12 flex items-start justify-between">
+              <div className="text-left">
+                <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-900 bg-clip-text text-transparent">
+                  Review & Confirm
+                </h2>
+                <p className="text-gray-600 text-xl mt-2">Verify all details before scheduling your interview</p>
+                <div className="flex items-center space-x-2 mt-4">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-green-600 font-medium">Ready to schedule</span>
+                </div>
+              </div>
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setCurrentStep(2)}
+                  className="group px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:border-blue-300 hover:text-blue-700 transition-all duration-300 font-semibold shadow-sm hover:shadow-md flex items-center space-x-2"
+                >
+                  <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>Back</span>
+                </button>
+                <button
+                  onClick={handleSchedule}
+                  className="group px-10 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center space-x-3"
+                >
+                  <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Schedule Interview</span>
+                  <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                </button>
               </div>
             </div>
-          )}
 
-          {/* Step 6: Description and Attachments */}
-          {currentStep >= 6 && selectedTime && (
-            <div className={`${currentStep < 6 ? 'opacity-50' : ''}`}>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                6. Additional Details
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Interview Notes & Past Stage Information
-                  </label>
+            <div className="space-y-8">
+              {/* Interview Summary Card */}
+              <div className="relative bg-gradient-to-br from-white via-slate-50 to-blue-50 border-2 border-white/60 rounded-3xl p-8 shadow-2xl hover:shadow-3xl transition-all duration-500 overflow-hidden">
+                {/* Background Pattern */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-100/50 to-transparent rounded-full blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-indigo-100/50 to-transparent rounded-full blur-2xl"></div>
+
+                <div className="relative z-10">
+                  <div className="flex items-center space-x-4 mb-8">
+                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-blue-800 bg-clip-text text-transparent">
+                        Interview Summary
+                      </h4>
+                      <p className="text-gray-600 mt-1">All your interview details at a glance</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Candidate Info */}
+                    <div className="group bg-gradient-to-br from-white to-emerald-50/50 p-6 rounded-2xl border-2 border-emerald-100/60 hover:border-emerald-200 transition-all duration-300 hover:shadow-lg">
+                      <div className="flex items-center space-x-4 mb-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
+                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <span className="text-sm font-bold text-gray-600 uppercase tracking-wide">Candidate</span>
+                          <div className="w-8 h-0.5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full mt-1"></div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold text-gray-900">{candidateEmail}</span>
+                        <div className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
+                          ✓ Confirmed
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Interview Type */}
+                    {selectedInterview && (
+                      <div className="group bg-gradient-to-br from-white to-blue-50/50 p-6 rounded-2xl border-2 border-blue-100/60 hover:border-blue-200 transition-all duration-300 hover:shadow-lg">
+                        <div className="flex items-center space-x-4 mb-3">
+                          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
+                            <span className="text-lg">
+                              {interviewTypes.find(t => t.value === selectedInterview)?.icon}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-bold text-gray-600 uppercase tracking-wide">Interview Type</span>
+                            <div className="w-8 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full mt-1"></div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-lg font-bold text-gray-900">
+                            {interviewTypes.find(t => t.value === selectedInterview)?.label}
+                          </span>
+                          <div className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                            Selected
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Interviewer */}
+                    {interviewEmail && (
+                      <div className="group bg-gradient-to-br from-white to-orange-50/50 p-6 rounded-2xl border-2 border-orange-100/60 hover:border-orange-200 transition-all duration-300 hover:shadow-lg">
+                        <div className="flex items-center space-x-4 mb-3">
+                          <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="text-sm font-bold text-gray-600 uppercase tracking-wide">Interviewer</span>
+                            <div className="w-8 h-0.5 bg-gradient-to-r from-orange-500 to-red-600 rounded-full mt-1"></div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-lg font-bold text-gray-900 break-all">{interviewEmail}</span>
+                          <div className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">
+                            Assigned
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Date & Time Combined */}
+                    {selectedDate && selectedTime && (
+                      <div className="group bg-gradient-to-br from-white to-purple-50/50 p-6 rounded-2xl border-2 border-purple-100/60 hover:border-purple-200 transition-all duration-300 hover:shadow-lg">
+                        <div className="flex items-center space-x-4 mb-3">
+                          <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-violet-600 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="text-sm font-bold text-gray-600 uppercase tracking-wide">Date & Time</span>
+                            <div className="w-8 h-0.5 bg-gradient-to-r from-purple-500 to-violet-600 rounded-full mt-1"></div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-lg font-bold text-gray-900">
+                              {new Date(selectedDate).toLocaleDateString('en-US', {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-md font-semibold text-purple-700">
+                              {timeSlots.find(slot => slot.value === selectedTime)?.label}
+                            </span>
+                            <div className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                              Scheduled
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Timezone */}
+                    <div className="group bg-gradient-to-br from-white to-indigo-50/50 p-6 rounded-2xl border-2 border-indigo-100/60 hover:border-indigo-200 transition-all duration-300 hover:shadow-lg">
+                      <div className="flex items-center space-x-4 mb-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
+                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <span className="text-sm font-bold text-gray-600 uppercase tracking-wide">Timezone</span>
+                          <div className="w-8 h-0.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full mt-1"></div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold text-gray-900">{selectedTimezone}</span>
+                        <div className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold">
+                          Set
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Meeting Link */}
+                    {meetingLink && (
+                      <div className="group bg-gradient-to-br from-white to-green-50/50 p-6 rounded-2xl border-2 border-green-100/60 hover:border-green-200 transition-all duration-300 hover:shadow-lg">
+                        <div className="flex items-center space-x-4 mb-3">
+                          <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="text-sm font-bold text-gray-600 uppercase tracking-wide">Meeting Link</span>
+                            <div className="w-8 h-0.5 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full mt-1"></div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-900 truncate max-w-[200px]">{meetingLink}</span>
+                          <div className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                            ✓ Added
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Notes Section */}
+              <div className="bg-gradient-to-br from-white via-gray-50 to-blue-50/30 border-2 border-white/60 rounded-3xl p-8 shadow-xl">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-r from-gray-600 to-gray-800 rounded-xl flex items-center justify-center shadow-lg">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-bold text-gray-900">Additional Notes</h4>
+                    <p className="text-gray-600 text-sm">Optional details for the interview</p>
+                  </div>
+                </div>
+
+                <div className="relative">
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={4}
-                    placeholder="Share information about previous interview stages, candidate feedback, or any specific notes..."
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    placeholder="Any special instructions, agenda items, or notes for the interview..."
+                    className="w-full px-6 py-4 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 resize-none transition-all duration-300 bg-white hover:border-gray-300 text-gray-900 placeholder-gray-500 shadow-sm"
                   />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Attachments
-                  </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
-                    <input
-                      type="file"
-                      id="file-upload"
-                      multiple
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
-                    />
-                    <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center justify-center">
-                      <div className="text-gray-400 mb-2">
-                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                      </div>
-                      <p className="text-sm text-gray-600 text-center">
-                        <span className="font-medium text-blue-600 hover:text-blue-500">Click to upload</span> or drag and drop
-                      </p>
-                    </label>
+                  <div className="absolute bottom-4 right-4 text-xs text-gray-400">
+                    {description.length}/500
                   </div>
+                </div>
+              </div>
 
-                  {attachments.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {attachments.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
-                          <div className="flex items-center">
-                            <span className="text-sm text-gray-700 truncate">{file.name}</span>
-                            <span className="text-xs text-gray-500 ml-2">({formatFileSize(file.size)})</span>
-                          </div>
-                          <button
-                            onClick={() => removeAttachment(index)}
-                            className="text-red-500 hover:text-red-700 p-1"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              {/* Final Check Section */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200/60 rounded-2xl p-6">
+                <div className="flex items-start space-x-4">
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mt-1">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h5 className="text-lg font-bold text-green-800 mb-2">Ready to Schedule!</h5>
+                    <p className="text-green-700 text-sm leading-relaxed">
+                      Please review all the details above. Once you click &ldquo;Schedule Interview&rdquo;,
+                      both the candidate and interviewer will receive confirmation emails with the meeting details.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        );
 
-        {/* Sidebar - Summary */}
-        <div className="col-span-4">
-          <div className="bg-gray-50 rounded-xl p-6 sticky top-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Interview Summary</h3>
+      default:
+        return null;
+    }
+  };
 
-            <div className="space-y-4">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Candidate:</span>
-                <span className="text-sm font-medium text-gray-900">{candidateEmail}</span>
-              </div>
-
-              {selectedTimezone && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Timezone:</span>
-                  <span className="text-sm font-medium text-gray-900">{selectedTimezone}</span>
-                </div>
-              )}
-
-              {selectedInterview && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Type:</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {interviewTypes.find(t => t.value === selectedInterview)?.label}
-                  </span>
-                </div>
-              )}
-
-              {interviewEmail && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Interviewer:</span>
-                  <span className="text-sm font-medium text-gray-900">{interviewEmail}</span>
-                </div>
-              )}
-
-              {selectedDate && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Date:</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {new Date(selectedDate).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-
-              {selectedTime && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Time:</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {timeSlots.find(slot => slot.value === selectedTime)?.label}
-                  </span>
-                </div>
-              )}
-
-              {meetingLink && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Meeting:</span>
-                  <span className="text-sm font-medium text-blue-600 truncate">Link Added</span>
-                </div>
-              )}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6">
+      <div className="bg-white/80 backdrop-blur-sm shadow-2xl rounded-3xl border border-white/20 p-8 max-w-7xl mx-auto">
+        {/* Header with gradient background */}
+        <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-slate-900 rounded-2xl p-8 mb-8 overflow-hidden">
+          <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
+          <div className="relative z-10 flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
+                Schedule Interview
+              </h1>
+              <p className="text-gray-300 text-lg">
+                Setting up interview for{' '}
+                <span className="font-semibold text-blue-300 bg-blue-500/20 px-3 py-1 rounded-full">
+                  {candidateEmail}
+                </span>
+              </p>
             </div>
-
-            {/* Action Buttons */}
-            <div className="mt-6 space-y-3">
-              {currentStep === 6 && (
-                <button
-                  onClick={handleSchedule}
-                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
-                >
-                  Schedule Interview
-                </button>
-              )}
-
+            <div className="flex items-end gap-4">
               <button
                 onClick={() => {
                   setCurrentStep(1);
@@ -482,16 +647,94 @@ const InterviewCard: React.FC<InterviewCardProps> = ({
                   setInterviewEmail('');
                   setSelectedDate('');
                   setSelectedTime('');
-                  setSelectedTimezone('');
+                  setSelectedTimezone('UTC+5:30 (IST)');
                   setMeetingLink('');
                   setDescription('');
                   setAttachments([]);
                 }}
-                className="w-full bg-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-400 transition-colors duration-200 font-medium"
+                className="group px-6 py-2 border-2 border-white/30 text-white rounded-xl hover:border-white/60 hover:bg-white/10 transition-all duration-300 font-semibold flex items-center space-x-3 shadow-sm hover:shadow-md backdrop-blur-sm"
               >
-                Reset Form
+                <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Reset</span>
               </button>
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold text-gray-300 mb-2 uppercase tracking-wide">
+                  Timezone
+                </label>
+                <select
+                  value={selectedTimezone}
+                  onChange={handleTimezoneSelect}
+                  className="px-4 py-3 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent min-w-[160px] bg-gray-800 text-white"
+                >
+                  {timezones.map((timezone) => (
+                    <option key={timezone} value={timezone} className="bg-gray-800">
+                      {timezone}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
+          </div>
+        </div>
+
+        {/* Enhanced Progress Steps - Vertical Layout */}
+        <div className="flex mb-16 justify-center">
+          <div className="bg-white/50 rounded-2xl py-6 border border-white/60 w-64 h-fit sticky top-8">
+            <div className="flex flex-col space-y-24 mt-16">
+              {[1, 2, 3].map((step, index) => (
+                <div key={step} className="relative flex items-center">
+                  <div className="flex items-center space-x-4 w-full">
+                    <div className={`relative flex items-center justify-center w-14 h-14 rounded-full font-bold text-sm transition-all duration-500 transform ${
+                      isStepCompleted(step) ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white scale-110 shadow-lg shadow-green-500/30' :
+                      isStepActive(step) ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white scale-110 shadow-lg shadow-blue-500/30' :
+                      'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                    }`}>
+                      {isStepCompleted(step) ? (
+                        <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : step}
+                      {(isStepActive(step) || isStepCompleted(step)) && (
+                        <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full blur opacity-30 animate-pulse"></div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`font-bold text-base transition-all duration-500 ${
+                        isStepActive(step) || isStepCompleted(step) ? 'text-gray-900' : 'text-gray-500'
+                      }`}>
+                        {stepTitles[index]}
+                      </p>
+                      <p className={`text-sm transition-all duration-500 ${
+                        isStepActive(step) ? 'text-blue-600' :
+                        isStepCompleted(step) ? 'text-green-600' : 'text-gray-400'
+                      }`}>
+                        {isStepCompleted(step) ? 'Completed' :
+                         isStepActive(step) ? 'In Progress' : 'Pending'}
+                      </p>
+                    </div>
+                  </div>
+                  {index < 2 && (
+                    <div className="absolute left-7 top-16 w-0.5 h-32 bg-gray-200 transition-all duration-700">
+                      <div className={`w-full transition-all duration-700 ${
+                        isStepCompleted(step + 1) ? 'h-full bg-gradient-to-b from-green-500 to-emerald-600' :
+                        isStepActive(step + 1) ? 'h-full bg-gradient-to-b from-blue-500 to-indigo-600' :
+                        isStepActive(step) ? 'h-2/3 bg-gradient-to-b from-blue-500 to-indigo-600' : 'h-0'
+                      }`} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex-1 max-w-4xl">
+            {/* Main Content */}
+            <div className="bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 backdrop-blur-sm rounded-3xl p-10 border border-white/60 shadow-xl min-h-[650px]">
+              {renderCurrentStep()}
+            </div>
+
           </div>
         </div>
       </div>
